@@ -2,20 +2,24 @@
 // 2. Enable shadows and set shadow parameters for the lights that cast shadows.
 // Both the THREE.DirectionalLight type and the THREE.SpotLight type support shadows.
 // 3. Indicate which geometry objects cast and receive shadows.
-
 var renderer = null,
 scene = null,
 camera = null,
 root = null,
 ring = null,
-gun = null,
-monster = null,
+bunnyObj = null,
+madafakinBunnyAnimator = null,
+animateMadafakinBunny = true,
 group = null,
+bunnyGroup = null,
 orbitControls = null;
+var rotations  = [];
+var positionsArray = [];
+var keyArray = [];
+var loopAnimation = false;
+var duration = 10; // sec
+var objLoader = null;
 
-var objLoader = null, jsonLoader = null;
-
-var duration = 20000; // ms
 var currentTime = Date.now();
 
 
@@ -46,14 +50,14 @@ function loadObj()
                 }
             } );
 
-            gun = object;
-            gun.scale.set(10,10,10);
-            gun.position.z = 0;
-            gun.position.x = 0;
-            gun.position.y = -3;
-            gun.rotation.x = Math.PI / 180;
-            gun.rotation.y = 0;
-            scene.add(object);
+            bunnyObj = object;
+            bunnyObj.scale.set(40,40,40);
+            bunnyObj.position.z = 0;
+            bunnyObj.position.x = 0;
+            bunnyObj.position.y = -3;
+            bunnyObj.rotation.x = Math.PI / 180;
+            bunnyObj.rotation.y = 0;
+            bunnyGroup.add(bunnyObj);
         },
         function ( xhr ) {
 
@@ -69,29 +73,25 @@ function loadObj()
 }
 
 function animate() {
-
     var now = Date.now();
     var deltat = now - currentTime;
     currentTime = now;
     var fract = deltat / duration;
     var angle = Math.PI * 2 * fract;
-
-    if(gun)
-        gun.rotation.y += angle / 2;
+    
 
 }
 
 function run() {
-    requestAnimationFrame(function() { run(); });
+    
+        requestAnimationFrame(function() { run(); });
+            // Render the scene
+            renderer.render( scene, camera );
 
-        // Render the scene
-        renderer.render( scene, camera );
-
-        // Spin the cube for next frame
-        animate();
-
-        // Update the camera controller
-        orbitControls.update();
+            // Update the animations
+            KF.update();
+            // Update the camera controller
+            orbitControls.update();
 }
 
 function setLightColor(light, r, g, b)
@@ -103,8 +103,6 @@ function setLightColor(light, r, g, b)
     light.color.setRGB(r, g, b);
 }
 
-var directionalLight = null;
-var spotLight = null;
 var ambientLight = null;
 var pointLight = null;
 var mapUrl = "../images/checker_large.gif";
@@ -112,7 +110,6 @@ var mapUrl = "../images/checker_large.gif";
 var SHADOW_MAP_WIDTH = 2048, SHADOW_MAP_HEIGHT = 2048;
 
 function createScene(canvas) {
-
     // Create the Three.js renderer and attach it to our canvas
     renderer = new THREE.WebGLRenderer( { canvas: canvas, antialias: true } );
 
@@ -126,47 +123,27 @@ function createScene(canvas) {
 
     // Create a new Three.js scene
     scene = new THREE.Scene();
-
     // Add  a camera so we can view the scene
-    camera = new THREE.PerspectiveCamera( 45, canvas.width / canvas.height, 1, 4000 );
-    camera.position.set(-2, 6, 12);
+    camera = new THREE.PerspectiveCamera(45, canvas.width / canvas.height, 2, 4000 );
+    camera.position.set(0, 40, 190);
     scene.add(camera);
 
-    // Create a group to hold all the objects
+
     root = new THREE.Object3D;
+    bunnyGroup = new THREE.Object3D;
 
-    // Add a directional light to show off the object
-    directionalLight = new THREE.DirectionalLight( 0x000000, 1);
 
-    // Create and add all the lights
-    directionalLight.position.set(.5, 0, 3);
-    root.add(directionalLight);
-
-    spotLight = new THREE.SpotLight (0x000000);
-    spotLight.position.set(2, 8, 15);
-    spotLight.target.position.set(-2, 0, -2);
-    root.add(spotLight);
-
-    spotLight.castShadow = true;
-
-    spotLight.shadow.camera.near = 1;
-    spotLight.shadow. camera.far = 200;
-    spotLight.shadow.camera.fov = 45;
-
-    spotLight.shadow.mapSize.width = SHADOW_MAP_WIDTH;
-    spotLight.shadow.mapSize.height = SHADOW_MAP_HEIGHT;
-
-    ambientLight = new THREE.AmbientLight ( 0x000000);
+    ambientLight = new THREE.AmbientLight (0x000000);
     root.add(ambientLight);
 
-    pointLight = new THREE.PointLight(0xffffff, 0.8, 0);
-    pointLight.position.set(0,1.5,15);
+    pointLight = new THREE.PointLight(0xffffff, 1.5, 0);
+    pointLight.position.set(0,10,0);
 
     pointLight.castShadow = true;
 
     pointLight.shadow.camera.near = 1;
-    pointLight.shadow.camera.far = 200;
-    pointLight.shadow.camera.fov = 45;
+    pointLight.shadow.camera.far = 100;
+    pointLight.shadow.camera.fov = 90;
 
     pointLight.shadow.mapSize.width = SHADOW_MAP_WIDTH;
     pointLight.shadow.mapSize.height = SHADOW_MAP_HEIGHT;
@@ -176,8 +153,7 @@ function createScene(canvas) {
     root.add(pointLightHelper);
     // Create the objects
     loadObj();
-
-
+    getKeysPositionsAndRotations();
     // Create a group to hold the objects
     group = new THREE.Object3D;
     root.add(group);
@@ -186,7 +162,6 @@ function createScene(canvas) {
     var map = new THREE.TextureLoader().load(mapUrl);
     map.wrapS = map.wrapT = THREE.RepeatWrapping;
     map.repeat.set(8, 8);
-
     var color = 0xffffff;
 
     // var asteroid = new THREE.Object3D();
@@ -198,36 +173,84 @@ function createScene(canvas) {
     mesh.position.y = -4.02;
 
     // Add the mesh to our group
-    group.add( mesh );
+    mesh.position.y = -3;
     mesh.castShadow = false;
     mesh.receiveShadow = true;
-
-    // Create the cube geometry
-    // geometry = new THREE.SphereGeometry(0.8, 20, 20);
-
-    // And put the geometry and material together into a mesh
-    // mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({color:color}));
-    // mesh.position.y = 2;
-    // mesh.castShadow = true;
-    // mesh.receiveShadow = true;
-
-    // Add the mesh to our group
-    group.add( mesh );
-
-    // Create the cylinder geometry
-    // geometry = new THREE.CylinderGeometry(1, 2, 2, 50, 10);
-
-    // And put the geometry and material together into a mesh
-    // mesh = new THREE.Mesh(geometry, new THREE.MeshPhongMaterial({color:color}));
-    mesh.position.y = -3;
-
-    // mesh.castShadow = false;
-    // mesh.receiveShadow = true;
-
     // Add the  mesh to our group
-    group.add( mesh );
-
+    group.add(mesh);
     // Now add the group to our scene
-    scene.add( root );
-    // scene.add( asteroid );
+    scene.add(root);
+    scene.add(bunnyGroup);
+}
+
+function getKeysPositionsAndRotations(){   
+    iterator = duration * 30;
+    var start = iterator/4;
+    var sum = iterator + start;
+    var lol = 360/iterator;
+    var timeDivisor = duration/10/sum;
+    var rotationValue = 0;
+    var y = 0; 
+    var x = 0;
+    var z = 0;
+    var flag = false; 
+    for (i = start; i <= sum; i++){  
+        if (flag){
+            y -= 0.5
+            if(y <= -1){
+                flag = false;
+            }
+        }
+        if(!flag){
+            y += 0.5
+            if(y >= 4){
+                flag = true;
+            }
+        }
+        x = ((Math.cos(((lol * i)) * Math.PI / 180)) * (30));
+        z = ((Math.sin(((lol * i)) * Math.PI / 90)) * 10);
+        positionsArray.push({'x':x,'y':y,'z': z });
+        keyArray.push(i * timeDivisor);
+    }
+    positionsArray.push({'x':0,'y':-3,'z': 0 });
+    keyArray.push(start * timeDivisor);
+    //Rotations
+    for (i = 0; i <= iterator; i++){
+        rotationValue = (Math.atan2(positionsArray[(i + 1) % iterator]['x'] - positionsArray[i]['x'], positionsArray[(i + 1) % iterator]['z'] - positionsArray[i]['z']))+Math.PI/2;
+        rotations.push({y:rotationValue});
+    }
+    rotations.push({y:rotationValue});
+}
+
+
+function playAnimations(){
+    // position animation
+    if (madafakinBunnyAnimator)
+        madafakinBunnyAnimator.stop();
+    bunnyGroup.position.set(0, 0, 0);
+    bunnyGroup.rotation.set(0, 0, 0);
+    if (animateMadafakinBunny){
+        madafakinBunnyAnimator = new KF.KeyFrameAnimator;
+        madafakinBunnyAnimator.init({ 
+            interps:
+                [
+                    { 
+                        keys:keyArray, 
+                        values:positionsArray,
+                        target:bunnyGroup.position
+                    },
+                    { 
+                        keys:keyArray, 
+                        values:rotations,
+                        target:bunnyGroup.rotation
+                    },
+                ],
+            loop: loopAnimation,
+            duration:duration * 1000
+        });
+        madafakinBunnyAnimator.start();
+        
+    }
+
+
 }
