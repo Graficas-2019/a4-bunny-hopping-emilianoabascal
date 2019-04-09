@@ -105,7 +105,7 @@ function setLightColor(light, r, g, b)
 
 var ambientLight = null;
 var pointLight = null;
-var mapUrl = "../images/checker_large.gif";
+var mapUrl = "images/checker_large.gif";
 
 var SHADOW_MAP_WIDTH = 2048, SHADOW_MAP_HEIGHT = 2048;
 
